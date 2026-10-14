@@ -13,15 +13,19 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Chart.js -->
+    <!-- Chart.js & Three.js for 3D Background -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-theme">
 
-    <!-- ================= PRELOADER ================= -->
+    <!-- 3D Canvas Background -->
+    <canvas id="bg3dCanvas"></canvas>
+
+    <!-- PRELOADER -->
     <div id="preloader" class="preloader">
         <div class="preloader-content">
             <div class="shield-pulse">
@@ -33,7 +37,7 @@
         </div>
     </div>
 
-    <!-- ================= NAVBAR ================= -->
+    <!-- NAVBAR -->
     <header class="navbar">
         <div class="nav-container">
             <a href="#" class="nav-brand">
@@ -61,10 +65,9 @@
         </div>
     </header>
 
-    <!-- ================= HERO SECTION ================= -->
+    <!-- HERO SECTION -->
     <section id="hero" class="hero-section">
         <div class="hero-container">
-            <!-- Left Hero Content -->
             <div class="hero-left fade-in-up">
                 <div class="privacy-badge">
                     <span class="dot"></span>
@@ -100,6 +103,14 @@
                         <button class="example-chip" data-url="alrajhi-bank-verify.xyz">alrajhi-bank-verify.xyz</button>
                         <button class="example-chip" data-url="free-gift.top/setup.exe">free-gift.top/setup.exe</button>
                     </div>
+                </div>
+
+                <!-- SCANNING LOADING CARD -->
+                <div id="scanningLoaderCard" class="result-card hidden text-center loading-pulse-card">
+                    <div class="scanner-laser-line"></div>
+                    <div class="cyber-spinner"><i class="fa-solid fa-arrows-spin fa-spin"></i></div>
+                    <h3 id="loaderTitle" class="mt-2" data-i18n="scanning_title">Inspecting URL Safety...</h3>
+                    <p id="loaderSubtitle" class="text-sub" data-i18n="scanning_sub">Evaluating SSL/TLS certificates, domain heuristics, and threat heuristics.</p>
                 </div>
 
                 <!-- Dynamic Results Viewport -->
@@ -185,7 +196,7 @@
         </div>
     </section>
 
-    <!-- ================= FEATURE: WHAT WE DETECT ================= -->
+    <!-- FEATURE SECTION -->
     <section id="what-we-detect" class="section-padding scroll-reveal">
         <div class="section-container">
             <div class="feature-layout">
@@ -222,7 +233,7 @@
         </div>
     </section>
 
-    <!-- ================= HOW IT WORKS ================= -->
+    <!-- HOW IT WORKS -->
     <section id="how-it-works" class="section-padding section-alt scroll-reveal">
         <div class="section-container">
             <h2 class="section-title text-center" data-i18n="how_title">How it works</h2>
@@ -249,7 +260,7 @@
         </div>
     </section>
 
-    <!-- ================= LOOKALIKES TABLE ================= -->
+    <!-- LOOKALIKES TABLE -->
     <section id="lookalikes" class="section-padding scroll-reveal">
         <div class="section-container">
             <div class="table-header-box">
@@ -295,7 +306,7 @@
         </div>
     </section>
 
-    <!-- ================= CTA BANNER ================= -->
+    <!-- CTA BANNER -->
     <section class="section-padding scroll-reveal">
         <div class="section-container">
             <div class="cta-card text-center">
@@ -309,7 +320,7 @@
         </div>
     </section>
 
-    <!-- ================= FOOTER ================= -->
+    <!-- FOOTER -->
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-brand">
@@ -320,18 +331,44 @@
         </div>
     </footer>
 
-    <!-- ================= DASHBOARD MODAL ================= -->
+    <!-- ADVANCED DASHBOARD MODAL -->
     <div id="dashboardModal" class="modal-overlay hidden">
         <div class="modal-card">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-border-all text-cyan"></i> <span data-i18n="dash_modal_title">Scan History Dashboard</span></h3>
+                <h3><i class="fa-solid fa-border-all text-cyan"></i> <span data-i18n="dash_modal_title">Scan History & Telemetry Analytics</span></h3>
                 <button id="closeModalBtn" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="modal-actions-bar">
-                    <span id="historyCountLabel">0 records stored locally</span>
-                    <button id="clearHistoryBtn" class="clear-btn"><i class="fa-solid fa-trash-can"></i> Clear History</button>
+                <!-- Advanced Dashboard Stats Widgets -->
+                <div class="dash-widgets-grid mb-3">
+                    <div class="dash-widget">
+                        <span class="w-label" data-i18n="dash_total">Total Scans</span>
+                        <h4 id="dashTotalCount" class="w-val">0</h4>
+                    </div>
+                    <div class="dash-widget">
+                        <span class="w-label text-green" data-i18n="dash_safe">Safe Links</span>
+                        <h4 id="dashSafeCount" class="w-val text-green">0</h4>
+                    </div>
+                    <div class="dash-widget">
+                        <span class="w-label text-red" data-i18n="dash_danger">Dangerous</span>
+                        <h4 id="dashDangerCount" class="w-val text-red">0</h4>
+                    </div>
                 </div>
+
+                <div class="modal-actions-bar">
+                    <div class="filter-group">
+                        <select id="historyFilterSelect" class="dash-select">
+                            <option value="ALL">All Records</option>
+                            <option value="SAFE">Safe Only</option>
+                            <option value="DANGEROUS">Dangerous / Suspicious</option>
+                        </select>
+                    </div>
+                    <div class="btn-group-dash">
+                        <button id="exportCsvBtn" class="dash-opt-btn"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                        <button id="clearHistoryBtn" class="clear-btn ms-2"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                    </div>
+                </div>
+
                 <div id="historyTableWrapper" class="history-table-wrapper">
                     <table class="history-table">
                         <thead>
