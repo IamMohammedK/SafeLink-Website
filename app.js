@@ -1,5 +1,5 @@
 /**
- * SafeLink Core Logic & UI Controller
+ * SafeLink Core Logic with 3D Canvas & Loading Animations
  */
 
 let currentLang = 'en';
@@ -8,21 +8,81 @@ let lastScanData = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initPreloader();
+    init3DBackground();
     initLanguage();
     initChart();
     initScrollAnimations();
     initEventListeners();
 });
 
-/* ================= PRELOADER ================= */
+/* PRELOADER */
 function initPreloader() {
     const preloader = document.getElementById('preloader');
-    setTimeout(() => {
-        preloader.classList.add('fade-out');
-    }, 1000);
+    setTimeout(() => { preloader.classList.add('fade-out'); }, 1000);
 }
 
-/* ================= LANGUAGE SWITCHER ================= */
+/* 3D ANIMATED PARTICLES MATRIX BACKGROUND */
+function init3DBackground() {
+    const canvas = document.getElementById('bg3dCanvas');
+    if (!canvas || !window.THREE) return;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Particles Grid
+    const particlesCount = 700;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particlesCount * 3);
+
+    for (let i = 0; i < particlesCount * 3; i++) {
+        positions[i] = (Math.random() - 0.5) * 15;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+        size: 0.035,
+        color: 0x00f2fe,
+        transparent: true,
+        opacity: 0.6
+    });
+
+    const particlesMesh = new THREE.Points(geometry, material);
+    scene.add(particlesMesh);
+
+    camera.position.z = 3;
+
+    // Mouse Parallax Effect
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', (e) => {
+        mouseX = (e.clientX / window.innerWidth) - 0.5;
+        mouseY = (e.clientY / window.innerHeight) - 0.5;
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        particlesMesh.rotation.y += 0.0015;
+        particlesMesh.rotation.x += 0.0008;
+
+        camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+        camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.05;
+
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+/* LANGUAGE SWITCHER */
 function initLanguage() {
     const btn = document.getElementById('langToggleBtn');
     btn.addEventListener('click', () => {
@@ -44,7 +104,7 @@ function applyLanguage(lang) {
     });
 }
 
-/* ================= CHART.JS TELEMETRY ================= */
+/* CHART.JS TELEMETRY */
 function initChart() {
     const ctx = document.getElementById('telemetryChart').getContext('2d');
     telemetryChartInstance = new Chart(ctx, {
@@ -69,38 +129,34 @@ function initChart() {
     });
 }
 
-/* ================= SCROLL REVEAL ANIMATION ================= */
+/* SCROLL REVEAL ANIMATION */
 function initScrollAnimations() {
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-            }
+            if (entry.isIntersecting) entry.target.classList.add('visible');
         });
     }, { threshold: 0.1 });
 
     document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
 }
 
-/* ================= SCAN LOGIC ================= */
+/* SCAN LOGIC WITH LOADING ANIMATION STATE */
 function initEventListeners() {
-    // Form submit
     document.getElementById('scanForm').addEventListener('submit', (e) => {
         e.preventDefault();
         const url = document.getElementById('urlInput').value.trim();
-        if (url) performScan(url);
+        if (url) triggerScanWithLoading(url);
     });
 
-    // Chips click
     document.querySelectorAll('.example-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             const url = chip.getAttribute('data-url');
             document.getElementById('urlInput').value = url;
-            performScan(url);
+            triggerScanWithLoading(url);
         });
     });
 
-    // Dashboard Modal
+    // Dashboard Modal Controls
     const modal = document.getElementById('dashboardModal');
     document.getElementById('navDashboardBtn').addEventListener('click', () => {
         loadHistory();
@@ -114,14 +170,32 @@ function initEventListeners() {
         modal.classList.add('hidden');
     });
 
-    // Clear History
     document.getElementById('clearHistoryBtn').addEventListener('click', () => {
         localStorage.removeItem('safelink_history');
         loadHistory();
     });
 
-    // AI Button Trigger
+    // CSV Export
+    document.getElementById('exportCsvBtn').addEventListener('click', exportHistoryCsv);
+    document.getElementById('historyFilterSelect').addEventListener('change', loadHistory);
+
     document.getElementById('runAiBtn').addEventListener('click', runAiAnalysis);
+}
+
+function triggerScanWithLoading(url) {
+    const placeholder = document.getElementById('defaultResultPlaceholder');
+    const scanArea = document.getElementById('scanResultArea');
+    const loaderCard = document.getElementById('scanningLoaderCard');
+
+    placeholder.classList.add('hidden');
+    scanArea.classList.add('hidden');
+    loaderCard.classList.remove('hidden');
+
+    // Simulate Realistic Scanner Delay
+    setTimeout(() => {
+        loaderCard.classList.add('hidden');
+        performScan(url);
+    }, 1200);
 }
 
 function performScan(urlString) {
@@ -201,7 +275,6 @@ function performScan(urlString) {
 }
 
 function renderResults(data) {
-    document.getElementById('defaultResultPlaceholder').classList.add('hidden');
     const resultArea = document.getElementById('scanResultArea');
     resultArea.classList.remove('hidden');
 
@@ -210,7 +283,6 @@ function renderResults(data) {
     document.getElementById('resDomainText').innerText = data.domain;
     document.getElementById('resProtocolText').innerText = data.protocol;
 
-    // Ring Animation
     const ring = document.getElementById('scoreProgressCircle');
     const offset = 326 - (326 * data.score) / 100;
     ring.style.strokeDashoffset = offset;
@@ -232,7 +304,6 @@ function renderResults(data) {
         ring.style.stroke = '#ef4444';
     }
 
-    // Render Warnings
     const wContainer = document.getElementById('warningsList');
     wContainer.innerHTML = '';
 
@@ -266,28 +337,40 @@ function runAiAnalysis() {
     }, 1200);
 }
 
-/* ================= LOCAL STORAGE HISTORY ================= */
+/* HISTORY & DASHBOARD ADVANCED WIDGETS */
 function saveToHistory(item) {
     let history = JSON.parse(localStorage.getItem('safelink_history') || '[]');
     history.unshift(item);
-    if (history.length > 10) history.pop();
+    if (history.length > 15) history.pop();
     localStorage.setItem('safelink_history', JSON.stringify(history));
 }
 
 function loadHistory() {
     let history = JSON.parse(localStorage.getItem('safelink_history') || '[]');
-    const tbody = document.getElementById('historyTableBody');
-    const countLabel = document.getElementById('historyCountLabel');
+    const filter = document.getElementById('historyFilterSelect').value;
 
-    countLabel.innerText = `${history.length} records stored locally`;
+    const tbody = document.getElementById('historyTableBody');
     tbody.innerHTML = '';
 
-    if (history.length === 0) {
+    // Calculate Analytics Stats
+    const total = history.length;
+    const safeCount = history.filter(h => h.status === 'SAFE').length;
+    const dangerCount = history.filter(h => h.status === 'DANGEROUS' || h.status === 'SUSPICIOUS').length;
+
+    document.getElementById('dashTotalCount').innerText = total;
+    document.getElementById('dashSafeCount').innerText = safeCount;
+    document.getElementById('dashDangerCount').innerText = dangerCount;
+
+    let filtered = history;
+    if (filter === 'SAFE') filtered = history.filter(h => h.status === 'SAFE');
+    if (filter === 'DANGEROUS') filtered = history.filter(h => h.status !== 'SAFE');
+
+    if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">No scan history found</td></tr>`;
         return;
     }
 
-    history.forEach(item => {
+    filtered.forEach(item => {
         tbody.innerHTML += `
             <tr>
                 <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;">${item.url}</td>
@@ -297,4 +380,25 @@ function loadHistory() {
             </tr>
         `;
     });
+}
+
+function exportHistoryCsv() {
+    let history = JSON.parse(localStorage.getItem('safelink_history') || '[]');
+    if (history.length === 0) {
+        alert("No scan data available to export.");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,URL,Score,Status,Time\n";
+    history.forEach(row => {
+        csvContent += `"${row.url}",${row.score},${row.status},"${row.time}"\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "safelink_threat_telemetry.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
