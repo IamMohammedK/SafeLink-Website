@@ -15,12 +15,24 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
 });
 
-/* PRELOADER (UPDATED TO 5 SECONDS) */
+/* PRELOADER WITH REALTIME 5-SECOND PROGRESS CONTROL */
 function initPreloader() {
     const preloader = document.getElementById('preloader');
-    setTimeout(() => { 
-        preloader.classList.add('fade-out'); 
-    }, 5000); // 5 Seconds Loading
+    const progressBar = document.getElementById('loaderProgress');
+
+    // تشغيل شريط التقدم ليصل إلى 100% خلال 5 ثوانٍ
+    requestAnimationFrame(() => {
+        if (progressBar) {
+            progressBar.style.width = '100%';
+        }
+    });
+
+    // إخفاء شاشة التحميل بعد انقضاء الـ 5 ثوانٍ تماماً
+    setTimeout(() => {
+        if (preloader) {
+            preloader.classList.add('fade-out');
+        }
+    }, 5000);
 }
 
 /* 3D ANIMATED PARTICLES MATRIX BACKGROUND */
