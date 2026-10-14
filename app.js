@@ -15,10 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
 });
 
-/* PRELOADER */
+/* PRELOADER (UPDATED TO 5 SECONDS) */
 function initPreloader() {
     const preloader = document.getElementById('preloader');
-    setTimeout(() => { preloader.classList.add('fade-out'); }, 1000);
+    setTimeout(() => { 
+        preloader.classList.add('fade-out'); 
+    }, 5000); // 5 Seconds Loading
 }
 
 /* 3D ANIMATED PARTICLES MATRIX BACKGROUND */
