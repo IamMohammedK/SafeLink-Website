@@ -208,7 +208,7 @@ function triggerScanWithLoading(url) {
     setTimeout(() => {
         loaderCard.classList.add('hidden');
         performScan(url);
-    }, 1200);
+    }, 4000);
 }
 
 function performScan(urlString) {
