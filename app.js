@@ -1,5 +1,5 @@
 /**
- * SafeLink Core Logic with 3D Canvas & Loading Animations
+ * SafeLink Core Logic with 3D Canvas, Loading Animations & 6-Group Heuristic Engine
  */
 
 let currentLang = 'en';
@@ -99,28 +99,30 @@ function init3DBackground() {
 /* LANGUAGE SWITCHER */
 function initLanguage() {
     const btn = document.getElementById('langToggleBtn');
-    btn.addEventListener('click', () => {
-        currentLang = currentLang === 'en' ? 'ar' : 'en';
-        applyLanguage(currentLang);
-    });
+    if (btn) {
+        btn.addEventListener('click', () => {
+            currentLang = currentLang === 'en' ? 'ar' : 'en';
+            applyLanguage(currentLang);
+        });
+    }
 }
 
 function applyLanguage(lang) {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    document.getElementById('langLabel').innerText = lang === 'ar' ? 'English' : 'العربية';
+    const langLabel = document.getElementById('langLabel');
+    if (langLabel) langLabel.innerText = lang === 'ar' ? 'English' : 'العربية';
 
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) {
-            el.innerHTML = TRANSLATIONS[lang][key];
-        }
-    });
+    if (lastScanData) {
+        renderResults(lastScanData);
+    }
 }
 
 /* CHART.JS TELEMETRY */
 function initChart() {
-    const ctx = document.getElementById('telemetryChart').getContext('2d');
+    const chartEl = document.getElementById('telemetryChart');
+    if (!chartEl || !window.Chart) return;
+    const ctx = chartEl.getContext('2d');
     telemetryChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -156,43 +158,47 @@ function initScrollAnimations() {
 
 /* SCAN LOGIC WITH LOADING ANIMATION STATE */
 function initEventListeners() {
-    document.getElementById('scanForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const url = document.getElementById('urlInput').value.trim();
-        if (url) triggerScanWithLoading(url);
-    });
+    const scanForm = document.getElementById('scanForm');
+    if (scanForm) {
+        scanForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput ? urlInput.value.trim() : '';
+            if (url) triggerScanWithLoading(url);
+        });
+    }
 
     document.querySelectorAll('.example-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             const url = chip.getAttribute('data-url');
-            document.getElementById('urlInput').value = url;
+            const urlInput = document.getElementById('urlInput');
+            if (urlInput) urlInput.value = url;
             triggerScanWithLoading(url);
         });
     });
 
     // Dashboard Modal Controls
     const modal = document.getElementById('dashboardModal');
-    document.getElementById('navDashboardBtn').addEventListener('click', () => {
-        loadHistory();
-        modal.classList.remove('hidden');
-    });
-    document.getElementById('ctaDashboardBtn').addEventListener('click', () => {
-        loadHistory();
-        modal.classList.remove('hidden');
-    });
-    document.getElementById('closeModalBtn').addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
+    const navDashBtn = document.getElementById('navDashboardBtn');
+    const ctaDashBtn = document.getElementById('ctaDashboardBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const historyFilterSelect = document.getElementById('historyFilterSelect');
 
-    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
-        localStorage.removeItem('safelink_history');
-        loadHistory();
-    });
+    if (navDashBtn) navDashBtn.addEventListener('click', () => { loadHistory(); modal.classList.remove('hidden'); });
+    if (ctaDashBtn) ctaDashBtn.addEventListener('click', () => { loadHistory(); modal.classList.remove('hidden'); });
+    if (closeModalBtn) closeModalBtn.addEventListener('click', () => { modal.classList.add('hidden'); });
 
-    // CSV Export
-    document.getElementById('exportCsvBtn').addEventListener('click', exportHistoryCsv);
-    document.getElementById('historyFilterSelect').addEventListener('change', loadHistory);
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', () => {
+            localStorage.removeItem('safelink_history');
+            loadHistory();
+        });
+    }
 
+    if (exportCsvBtn) exportCsvBtn.addEventListener('click', exportHistoryCsv);
+    if (historyFilterSelect) historyFilterSelect.addEventListener('change', loadHistory);
 }
 
 function triggerScanWithLoading(url) {
@@ -200,21 +206,21 @@ function triggerScanWithLoading(url) {
     const scanArea = document.getElementById('scanResultArea');
     const loaderCard = document.getElementById('scanningLoaderCard');
 
-    placeholder.classList.add('hidden');
-    scanArea.classList.add('hidden');
-    loaderCard.classList.remove('hidden');
+    if (placeholder) placeholder.classList.add('hidden');
+    if (scanArea) scanArea.classList.add('hidden');
+    if (loaderCard) loaderCard.classList.remove('hidden');
 
-    // Simulate Realistic Scanner Delay
     setTimeout(() => {
-        loaderCard.classList.add('hidden');
+        if (loaderCard) loaderCard.classList.add('hidden');
         performScan(url);
     }, 4000);
 }
 
+/* COMPREHENSIVE 6-GROUP SCAN ENGINE */
 function performScan(urlString) {
     let score = 100;
     const warnings = [];
-    let formattedUrl = urlString;
+    let formattedUrl = urlString.trim();
 
     if (!/^https?:\/\//i.test(formattedUrl)) {
         formattedUrl = 'http://' + formattedUrl;
@@ -229,9 +235,14 @@ function performScan(urlString) {
     }
 
     const domain = parsed.hostname.toLowerCase();
-    const path = parsed.pathname.toLowerCase() + parsed.search.toLowerCase();
-    const protocol = parsed.protocol;
+    const pathname = parsed.pathname;
+    const search = parsed.search;
+    const fullPath = (pathname + search).toLowerCase();
+    const protocol = parsed.protocol.toLowerCase();
+    const port = parsed.port;
+    const username = parsed.username;
 
+    // --- المجموعة 1: بروتوكول الاتصال (HTTPS) ---
     if (protocol !== 'https:') {
         score -= 25;
         warnings.push({
@@ -241,7 +252,32 @@ function performScan(urlString) {
         });
     }
 
-    if (domain.includes('paypa1') || domain.includes('rnicrosoft') || domain.includes('alrajhibank-secure')) {
+    // --- المجموعة 2: المضيف والمنفذ (IP & Port) ---
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    const hexOctalIpRegex = /^(0x[0-9a-f]+|\d+)(\.(0x[0-9a-f]+|\d+)){3}$/i;
+    if (ipv4Regex.test(domain) || hexOctalIpRegex.test(domain) || domain.startsWith('[')) {
+        score -= 35;
+        warnings.push({
+            type: 'danger',
+            en: 'Direct IP address or disguised numeric format used instead of a domain name.',
+            ar: 'استخدام عنوان IP مباشر أو صيغة رقمية متخفية بدلاً من اسم نطاق رسمياً.'
+        });
+    }
+
+    if (port && port !== '80' && port !== '443') {
+        score -= 15;
+        warnings.push({
+            type: 'warning',
+            en: `Unusual port connection detected (Port: ${port}).`,
+            ar: `اتصال عبر منفذ غير معتاد (Port: ${port}).`
+        });
+    }
+
+    // --- المجموعة 3: اسم النطاق (Typosquatting, Subdomains, Punycode, TLDs) ---
+    const brandPatterns = [/paypa[1l]/i, /alrajhi.*bank/i, /rnicrosoft/i, /goog[1l]e/i, /app[1l]e/i, /binance-verify/i];
+    const isImpersonating = brandPatterns.some(p => p.test(domain) && !domain.endsWith('paypal.com') && !domain.endsWith('alrajhibank.com.sa') && !domain.endsWith('microsoft.com') && !domain.endsWith('google.com'));
+
+    if (isImpersonating) {
         score -= 45;
         warnings.push({
             type: 'danger',
@@ -250,16 +286,26 @@ function performScan(urlString) {
         });
     }
 
-    if (path.endsWith('.exe') || path.endsWith('.apk') || path.endsWith('.scr')) {
-        score -= 40;
+    const domainParts = domain.split('.');
+    if (domainParts.length > 3) {
+        score -= 15;
         warnings.push({
-            type: 'danger',
-            en: 'Direct link to an executable or potentially dangerous download.',
-            ar: 'الرابط يؤدي مباشرة لتحميل ملف تنفيذي قد يكون ضاراً.'
+            type: 'warning',
+            en: 'Excessive number of subdomains detected.',
+            ar: 'وجود كثرة غير معتادة من النطاقات الفرعية (Subdomains).'
         });
     }
 
-    if (domain.endsWith('.xyz') || domain.endsWith('.top')) {
+    if (domain.startsWith('xn--')) {
+        score -= 25;
+        warnings.push({
+            type: 'warning',
+            en: 'Domain uses Punycode encoding (Potential deceptive internationalized domain).',
+            ar: 'النطاق يستخدم ترميز Punycode (قد يُخفي حروفاً متشابهة خدّاعة).'
+        });
+    }
+
+    if (domain.endsWith('.xyz') || domain.endsWith('.top') || domain.endsWith('.zip') || domain.endsWith('.kim')) {
         score -= 20;
         warnings.push({
             type: 'warning',
@@ -268,6 +314,95 @@ function performScan(urlString) {
         });
     }
 
+    if ((domain.match(/-/g) || []).length >= 3) {
+        score -= 10;
+        warnings.push({
+            type: 'warning',
+            en: 'Excessive hyphens (-) used within the domain name.',
+            ar: 'استخدام مفرط للشرطات (-) داخل اسم النطاق.'
+        });
+    }
+
+    // --- المجموعة 4: الأحرف والرموز غير المعتادة ---
+    if (/[\\\{\}\|<>]/.test(urlString)) {
+        score -= 15;
+        warnings.push({
+            type: 'warning',
+            en: 'URL contains unusual special characters (e.g. { } | \\).',
+            ar: 'الرابط يحتوي على رموز خاصة غير معتادة (مثل { } | \\).'
+        });
+    }
+
+    if (urlString.includes('%25') || (urlString.match(/%/g) || []).length > 4) {
+        score -= 15;
+        warnings.push({
+            type: 'warning',
+            en: 'Double URL encoding or excessive encoding detected.',
+            ar: 'اكتشاف ترميز مكرر أو مفرط للرموز (Double URL Encoding).'
+        });
+    }
+
+    if (urlString.length > 85) {
+        score -= 10;
+        warnings.push({
+            type: 'warning',
+            en: 'Suspiciously long URL structure detected.',
+            ar: 'طول الرابط طويل جداً بشكل غير طبيعي (Suspicious URL Length).'
+        });
+    }
+
+    // --- المجموعة 5: المسار ونوع الملف (Executable Download & Traversal) ---
+    const executableExtensions = /\.(exe|apk|bat|scr|vbs|cmd|msi|ps1)$/i;
+    if (executableExtensions.test(pathname)) {
+        score -= 40;
+        warnings.push({
+            type: 'danger',
+            en: 'Direct link to an executable or potentially dangerous download.',
+            ar: 'الرابط يؤدي مباشرة لتحميل ملف تنفيذي قد يكون ضاراً.'
+        });
+    }
+
+    if (pathname.includes('../') || pathname.includes('..\\')) {
+        score -= 30;
+        warnings.push({
+            type: 'danger',
+            en: 'Directory traversal sequence detected in URL path.',
+            ar: 'اكتشاف محاولة تراجع بين المجلدات في المسار (Directory Traversal).'
+        });
+    }
+
+    // --- المجموعة 6: محتوى ومؤشرات الرابط (User Info, Shorteners, Phishing Words) ---
+    if (username || urlString.includes('@')) {
+        score -= 35;
+        warnings.push({
+            type: 'danger',
+            en: 'URL contains "@" symbol, often used to mislead destination authority.',
+            ar: 'احتواء الرابط على رمز (@) للتضليل وإخفاء الوجهة الحقيقية.'
+        });
+    }
+
+    const shorteners = ['bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'buff.ly', 'ow.ly'];
+    if (shorteners.some(s => domain.endsWith(s))) {
+        score -= 15;
+        warnings.push({
+            type: 'warning',
+            en: 'URL Shortener service used; hides true final destination.',
+            ar: 'رابط مختصر يربك معرفة الوجهة النهائية الحقيقية بدون فحص التوجيه.'
+        });
+    }
+
+    const phishingKeywords = ['login', 'verify', 'update', 'account', 'secure', 'banking', 'confirm', 'free-gift'];
+    const foundKeywords = phishingKeywords.filter(kw => fullPath.includes(kw));
+    if (foundKeywords.length >= 2) {
+        score -= 20;
+        warnings.push({
+            type: 'warning',
+            en: `Multiple suspicious phishing keywords in URL path (${foundKeywords.join(', ')}).`,
+            ar: `استخدام كلمات استدراج شائعة في مسار الرابط (${foundKeywords.join(', ')}).`
+        });
+    }
+
+    // الحساب النهائي والتصنيف
     const finalScore = Math.max(0, score);
     let status = 'SAFE';
     if (finalScore < 50) status = 'DANGEROUS';
@@ -289,49 +424,57 @@ function performScan(urlString) {
 
 function renderResults(data) {
     const resultArea = document.getElementById('scanResultArea');
-    resultArea.classList.remove('hidden');
+    if (resultArea) resultArea.classList.remove('hidden');
 
-    document.getElementById('scoreNum').innerText = data.score;
-    document.getElementById('resTargetUrl').innerText = data.url;
-    document.getElementById('resDomainText').innerText = data.domain;
-    document.getElementById('resProtocolText').innerText = data.protocol;
+    const scoreNum = document.getElementById('scoreNum');
+    const resTargetUrl = document.getElementById('resTargetUrl');
+    const resDomainText = document.getElementById('resDomainText');
+    const resProtocolText = document.getElementById('resProtocolText');
+
+    if (scoreNum) scoreNum.innerText = data.score;
+    if (resTargetUrl) resTargetUrl.innerText = data.url;
+    if (resDomainText) resDomainText.innerText = data.domain;
+    if (resProtocolText) resProtocolText.innerText = data.protocol;
 
     const ring = document.getElementById('scoreProgressCircle');
-    const offset = 326 - (326 * data.score) / 100;
-    ring.style.strokeDashoffset = offset;
+    if (ring) {
+        const offset = 326 - (326 * data.score) / 100;
+        ring.style.strokeDashoffset = offset;
+    }
 
     const badge = document.getElementById('resultStatusBadge');
-    badge.className = 'status-badge';
+    if (badge) {
+        badge.className = 'status-badge';
 
-    if (data.status === 'SAFE') {
-        badge.classList.add('status-safe');
-        badge.innerText = currentLang === 'ar' ? 'آمن' : 'Safe';
-        ring.style.stroke = '#10b981';
-    } else if (data.status === 'SUSPICIOUS') {
-        badge.classList.add('status-suspicious');
-        badge.innerText = currentLang === 'ar' ? 'مشبوه' : 'Suspicious';
-        ring.style.stroke = '#f59e0b';
-    } else {
-        badge.classList.add('status-dangerous');
-        badge.innerText = currentLang === 'ar' ? 'خطير' : 'Dangerous';
-        ring.style.stroke = '#ef4444';
+        if (data.status === 'SAFE') {
+            badge.classList.add('status-safe');
+            badge.innerText = currentLang === 'ar' ? 'آمن' : 'Safe';
+            if (ring) ring.style.stroke = '#10b981';
+        } else if (data.status === 'SUSPICIOUS') {
+            badge.classList.add('status-suspicious');
+            badge.innerText = currentLang === 'ar' ? 'مشبوه' : 'Suspicious';
+            if (ring) ring.style.stroke = '#f59e0b';
+        } else {
+            badge.classList.add('status-dangerous');
+            badge.innerText = currentLang === 'ar' ? 'خطير' : 'Dangerous';
+            if (ring) ring.style.stroke = '#ef4444';
+        }
     }
 
     const wContainer = document.getElementById('warningsList');
-    wContainer.innerHTML = '';
+    if (wContainer) {
+        wContainer.innerHTML = '';
 
-    if (data.warnings.length === 0) {
-        wContainer.innerHTML = `<div class="warning-item warning-success"><i class="fa-solid fa-circle-check"></i> ${currentLang === 'ar' ? 'لم يتم رصد أي أنماط مشبوهة في هذا الرابط.' : 'No suspicious patterns or threats detected in this link.'}</div>`;
-    } else {
-        data.warnings.forEach(w => {
-            const classs = w.type === 'danger' ? 'warning-danger' : 'warning-warning';
-            wContainer.innerHTML += `<div class="warning-item ${classs}"><i class="fa-solid fa-triangle-exclamation"></i> ${w[currentLang]}</div>`;
-        });
+        if (data.warnings.length === 0) {
+            wContainer.innerHTML = `<div class="warning-item warning-success"><i class="fa-solid fa-circle-check"></i> ${currentLang === 'ar' ? 'لم يتم رصد أي أنماط مشبوهة في هذا الرابط.' : 'No suspicious patterns or threats detected in this link.'}</div>`;
+        } else {
+            data.warnings.forEach(w => {
+                const classs = w.type === 'danger' ? 'warning-danger' : 'warning-warning';
+                wContainer.innerHTML += `<div class="warning-item ${classs}"><i class="fa-solid fa-triangle-exclamation"></i> ${w[currentLang]}</div>`;
+            });
+        }
     }
-
-    
 }
-
 
 /* HISTORY & DASHBOARD ADVANCED WIDGETS */
 function saveToHistory(item) {
@@ -343,9 +486,11 @@ function saveToHistory(item) {
 
 function loadHistory() {
     let history = JSON.parse(localStorage.getItem('safelink_history') || '[]');
-    const filter = document.getElementById('historyFilterSelect').value;
+    const filterEl = document.getElementById('historyFilterSelect');
+    const filter = filterEl ? filterEl.value : 'ALL';
 
     const tbody = document.getElementById('historyTableBody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     // Calculate Analytics Stats
@@ -353,9 +498,13 @@ function loadHistory() {
     const safeCount = history.filter(h => h.status === 'SAFE').length;
     const dangerCount = history.filter(h => h.status === 'DANGEROUS' || h.status === 'SUSPICIOUS').length;
 
-    document.getElementById('dashTotalCount').innerText = total;
-    document.getElementById('dashSafeCount').innerText = safeCount;
-    document.getElementById('dashDangerCount').innerText = dangerCount;
+    const dashTotal = document.getElementById('dashTotalCount');
+    const dashSafe = document.getElementById('dashSafeCount');
+    const dashDanger = document.getElementById('dashDangerCount');
+
+    if (dashTotal) dashTotal.innerText = total;
+    if (dashSafe) dashSafe.innerText = safeCount;
+    if (dashDanger) dashDanger.innerText = dangerCount;
 
     let filtered = history;
     if (filter === 'SAFE') filtered = history.filter(h => h.status === 'SAFE');
