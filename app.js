@@ -179,7 +179,6 @@ function initEventListeners() {
     document.getElementById('exportCsvBtn').addEventListener('click', exportHistoryCsv);
     document.getElementById('historyFilterSelect').addEventListener('change', loadHistory);
 
-    document.getElementById('runAiBtn').addEventListener('click', runAiAnalysis);
 }
 
 function triggerScanWithLoading(url) {
@@ -316,26 +315,9 @@ function renderResults(data) {
         });
     }
 
-    document.getElementById('aiReportBox').innerText = TRANSLATIONS[currentLang].ai_report_placeholder;
+    
 }
 
-function runAiAnalysis() {
-    if (!lastScanData) return;
-    const box = document.getElementById('aiReportBox');
-    box.innerText = currentLang === 'ar' ? 'جاري التحليل بواسطة Gemini AI...' : 'Generating Gemini AI Security Analysis...';
-
-    setTimeout(() => {
-        if (lastScanData.status === 'SAFE') {
-            box.innerText = currentLang === 'ar' 
-                ? "الرابط يبدو معتمداً وآمناً. لا توجد مؤشرات على هندسة اجتماعية."
-                : "The URL structure appears legitimate. SSL encryption is active and no phishing indicators were identified.";
-        } else {
-            box.innerText = currentLang === 'ar'
-                ? `تحذير الذكاء الاصطناعي: يحتوي الرابط (${lastScanData.domain}) على مؤشرات احتيالية أو هندسة اجتماعية تهدف لسرقة البيانات. تجنب إدخال أي معلومات خاصة.`
-                : `AI Security Warning: The domain (${lastScanData.domain}) exhibits deceptive patterns. Avoid entering personal credentials or downloading files.`;
-        }
-    }, 1200);
-}
 
 /* HISTORY & DASHBOARD ADVANCED WIDGETS */
 function saveToHistory(item) {
